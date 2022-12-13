@@ -56,7 +56,7 @@ void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* d
   const double xinit = 5;
   const double yinit = 5;
 
-  #pragma omp
+  #pragma omp for
   for (int64_t i = 0; i < ndim_tab[0] ; ++i ){
     x[i] = (i-2)*dx[0] + x0;
     for (int64_t j = 0; j < ndim_tab[1] ; ++j ){
@@ -75,8 +75,9 @@ void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* d
 ////
 void mise_a_jour( int* ndim_tab,   double* T0, double* T1, double* bilan, const double dt )
 {
- for (int64_t j = 2; j < ndim_tab[1]-2 ; ++j ){ 
-  for (int64_t i = 2; i < ndim_tab[0]-2 ; ++i ){ 
+  #pragma omp for
+  for (int64_t j = 2; j < ndim_tab[1]-2 ; ++j ){ 
+    for (int64_t i = 2; i < ndim_tab[0]-2 ; ++i ){ 
     
      int    l = j*ndim_tab[0]+ i;
  
@@ -98,6 +99,7 @@ void advection( int* ndim_tab,   double* T, double* bilan, double* dx, double* a
   // 1er sous pas schema Heun
   if(step==0)
   {
+    #pragma omp for
     for (int64_t j = 2; j < ndim_tab[1]-2 ; ++j ) {
       for (int64_t i = 2; i < ndim_tab[0]-2 ; ++i ) { 
 
@@ -127,6 +129,7 @@ void advection( int* ndim_tab,   double* T, double* bilan, double* dx, double* a
   // 2eme sous pas schema Heun
   else
   {
+    #pragma omp for
     for (int64_t j = 2; j < ndim_tab[1]-2 ; ++j ) {
       for (int64_t i = 2; i < ndim_tab[0]-2 ; ++i ) { 
 
@@ -157,6 +160,7 @@ void advection( int* ndim_tab,   double* T, double* bilan, double* dx, double* a
 
 void diffusion( int* ndim_tab,   double* T, double* bilan, double* dx, const double mu )
 {
+    #pragma omp for
     for (int64_t j = 2; j < ndim_tab[1]-2 ; ++j ) {
       for (int64_t i = 2; i < ndim_tab[0]-2 ; ++i ) { 
 
@@ -224,68 +228,73 @@ int main( int nargc, char* argv[])
   int Nitmax      =2000;
   int Stepmax     = 2;
 
-  //Boucle en temps
-  for (int64_t nit = 0; nit < Nitmax ; ++nit )
-  { 
-    //Boucle Runge-Kutta
-    double *Tin;
-    double *Tout;
-    double *Tbilan;
-    for (int64_t step = 0; step < Stepmax ; ++step )
+
+  #pragma omp parallel
+  {
+    //Boucle en temps
+    for (int64_t nit = 0; nit < Nitmax ; ++nit )
     { 
-       //mise a jour point courant
-       if(step==0) { Tin = T0; Tout= T1; Tbilan= T0;}
-       else        { Tin = T0; Tout= T0; Tbilan= T1;}
-
-       //advection
-       advection(Ndim_tab, Tbilan, bilan,  dx, U , step);
-
-       diffusion(Ndim_tab, Tbilan, bilan,  dx, mu);
-       mise_a_jour(Ndim_tab, Tin, Tout, bilan,  dt);
-
-      //Application Condition limite
-      for (int64_t ific = 0; ific < nfic ; ++ific )
-      {  
-          //periodicité en Jmax et Jmin
-          for (int64_t i = 0; i < Ndim_tab[0]  ; ++i )
-          {  
-           //Jmin
-           int l0   = ific*Ndim_tab[0] +i;
- 
-           int l1   = Ndim_tab[0]*(Ndim_tab[1]-2*nfic +ific) +i;
-
-           Tout[l0] = Tout[l1];
-
-           //Jmax
-           l0   = Ndim_tab[0]*(Ndim_tab[1]-nfic +ific) +i;
-           l1   = Ndim_tab[0]*(nfic +ific) +i;
-
-           Tout[l0] = Tout[l1];
-          }
-      }
-
-      for (int64_t ific = 0; ific < nfic ; ++ific )
+      //Boucle Runge-Kutta
+      double *Tin;
+      double *Tout;
+      double *Tbilan;
+      for (int64_t step = 0; step < Stepmax ; ++step )
       { 
-          //periodicité en Imax et Imin
-          for (int64_t j = 0; j < Ndim_tab[1]  ; ++j )
-          {  
-           //Imin
-           int l0   = ific +j*Ndim_tab[0]; 
-           int l1   = l0 + Ndim_tab[0] - 2*nfic;
+        //mise a jour point courant
+        if(step==0) { Tin = T0; Tout= T1; Tbilan= T0;}
+        else        { Tin = T0; Tout= T0; Tbilan= T1;}
 
-           Tout[l0] = Tout[l1];
+        //advection
+        advection(Ndim_tab, Tbilan, bilan,  dx, U , step);
 
-           //Imax
-           l0   = ific + (j+1)*Ndim_tab[0] - nfic;
-           l1   = l0 - Ndim_tab[0] + 2*nfic;
+        diffusion(Ndim_tab, Tbilan, bilan,  dx, mu);
+        mise_a_jour(Ndim_tab, Tin, Tout, bilan,  dt);
 
-           Tout[l0] = Tout[l1];
-          }
-      }
+        //Application Condition limite
+        #pragma omp for
+        for (int64_t ific = 0; ific < nfic ; ++ific )
+        {  
+            //periodicité en Jmax et Jmin
+            for (int64_t i = 0; i < Ndim_tab[0]  ; ++i )
+            {  
+            //Jmin
+            int l0   = ific*Ndim_tab[0] +i;
+  
+            int l1   = Ndim_tab[0]*(Ndim_tab[1]-2*nfic +ific) +i;
 
-     }  // Nstepmax
+            Tout[l0] = Tout[l1];
+
+            //Jmax
+            l0   = Ndim_tab[0]*(Ndim_tab[1]-nfic +ific) +i;
+            l1   = Ndim_tab[0]*(nfic +ific) +i;
+
+            Tout[l0] = Tout[l1];
+            }
+        }
+        
+        #pragma omp for
+        for (int64_t ific = 0; ific < nfic ; ++ific )
+        { 
+            //periodicité en Imax et Imin
+            for (int64_t j = 0; j < Ndim_tab[1]  ; ++j )
+            {  
+            //Imin
+            int l0   = ific +j*Ndim_tab[0]; 
+            int l1   = l0 + Ndim_tab[0] - 2*nfic;
+
+            Tout[l0] = Tout[l1];
+
+            //Imax
+            l0   = ific + (j+1)*Ndim_tab[0] - nfic;
+            l1   = l0 - Ndim_tab[0] + 2*nfic;
+
+            Tout[l0] = Tout[l1];
+            }
+        }
+      }  // Nstepmax
     }  // Nitmax
-
+  }
+  
   for (int64_t i = nfic; i < Ndim_tab[0]-nfic ; ++i ){ 
    for (int64_t j = nfic; j < Ndim_tab[1]-nfic ; ++j ){ 
 

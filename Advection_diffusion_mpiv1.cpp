@@ -170,13 +170,28 @@ void diffusion( int* ndim_tab,   double* T, double* bilan, double* dx, const dou
 
 int main( int nargc, char* argv[])
 {
+
+  // MPI Stuff
+  int nbp{0};
+  int rank{0};
+  MPI_Status stats;
+  MPI_Comm world;
+  MPI_Init(&nargc, &argv);
+  PMPI_Comm_dup(MPI_COMM_WORLD, &world);
+  MPI_Comm_rank(world, &rank);
+  MPI_Comm_size(world, &nbp);
+  // End of MPI stuff
+
   char fileName[255];
   FILE* out;
 
   int dim[2]; dim[0] = 500; dim[1]=500;
   int nfic     =  2;
 
-  sprintf(fileName, "Sortie.txt");
+  // sprintf(fileName, "Sortie.txt");
+  // out = fopen(fileName, "w");
+
+  sprintf(fileName, "Sortie%05d.txt", rank);
   out = fopen(fileName, "w");
  
 
@@ -296,6 +311,9 @@ int main( int nargc, char* argv[])
   fclose(out);
 
   delete [] T0;  delete [] T1; delete [] bilan; delete [] x;
+
+  //Real end of MPI Stuff
+  MPI_Finalize();
 
   return EXIT_SUCCESS;
 }
