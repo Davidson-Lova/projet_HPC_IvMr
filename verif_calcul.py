@@ -1,7 +1,8 @@
 import numpy as np
+import os
+os.chdir(os.getcwd())
 
-
-ref = np.loadtxt('resRef.txt',dtype="float64",usecols =(0,2))
+ref = np.loadtxt('myresRef.txt',dtype="float64",usecols =(0,2))
 res = np.loadtxt('res.txt',dtype="float64",usecols =(0,2))
 
 sh = np.shape(ref)

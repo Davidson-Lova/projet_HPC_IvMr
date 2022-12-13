@@ -5,6 +5,7 @@
 # include <iostream>
 # include <cassert>
 # include <stdint.h>
+# include <omp.h>
 
 
 #include <time.h>
@@ -55,16 +56,17 @@ void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* d
   const double xinit = 5;
   const double yinit = 5;
 
+  #pragma omp
   for (int64_t i = 0; i < ndim_tab[0] ; ++i ){
-     x[i] = (i-2)*dx[0] + x0;
-  for (int64_t j = 0; j < ndim_tab[1] ; ++j ){
-     y[j] = (j-2)*dx[1] + y0;
+    x[i] = (i-2)*dx[0] + x0;
+    for (int64_t j = 0; j < ndim_tab[1] ; ++j ){
+      y[j] = (j-2)*dx[1] + y0;
 
-     int l = j*ndim_tab[0]+ i;
+      int l = j*ndim_tab[0]+ i;
 
-     double r = std::sqrt( (x[i]-xinit)*(x[i]-xinit) + (y[j]-yinit)*(y[j]-yinit) );
-     T0[l] =300+ 10 * std::exp(-r/0.2);
-  }
+      double r = std::sqrt( (x[i]-xinit)*(x[i]-xinit) + (y[j]-yinit)*(y[j]-yinit) );
+      T0[l] =300+ 10 * std::exp(-r/0.2);
+    }
   }
 }
 
