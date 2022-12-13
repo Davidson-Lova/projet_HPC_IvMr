@@ -1,3 +1,4 @@
+#include <cstdint>
 # include <cstdlib>
 # include <cmath>
 # include <mpi/mpi.h>
@@ -42,15 +43,17 @@ Chronometer::click()
 ////
 //// Init
 ////
-void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* dx )
+void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* dx, int rank, int nbp)
 {
   const double lx = 10.;
+ 
   const double ly = 10.;
 
   dx[0] = lx/dim[0];
   dx[1] = ly/dim[1];
 
-  const double x0 = 0;
+  const double x0 = (lx/double(nbp))*double(rank);
+
   const double y0 = 0;
   const double xinit = 5;
   const double yinit = 5;
@@ -71,7 +74,7 @@ void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* d
 ////
 //// mise a jour
 ////
-void mise_a_jour( int* ndim_tab,   double* T0, double* T1, double* bilan, const double dt )
+void mise_a_jour( int* ndim_tab,   double* T0, double* T1, double* bilan, const double dt)
 {
  for (int64_t j = 2; j < ndim_tab[1]-2 ; ++j ){ 
   for (int64_t i = 2; i < ndim_tab[0]-2 ; ++i ){ 
@@ -171,7 +174,8 @@ void diffusion( int* ndim_tab,   double* T, double* bilan, double* dx, const dou
 int main( int nargc, char* argv[])
 {
 
-  // MPI Stuff
+  // MPI Stuff4
+  MPI_Request request[2];
   int nbp{0};
   int rank{0};
   MPI_Status stats;
@@ -200,22 +204,29 @@ int main( int nargc, char* argv[])
   //Determination la taille des grilles dans les direction X ( Ndim_tab[0]) et Y ( Ndim_tab[1]) avec les cellules fantomes
   //
   //
+
+  // On découpe le long de la variable X, si la dimension n'est pas divisible on vera
   int Ndim_tab[2];
-  Ndim_tab[0] = dim[0]+2*nfic; 
-  Ndim_tab[1] = dim[1]+2*nfic;  
+  Ndim_tab[0] = (dim[0]/nbp) + ((rank < dim[0]%nbp)? 1 : 0) +2*nfic;
+  Ndim_tab[1] = dim[1]+2*nfic;
 
 
-  double *x,*y, *T1, *T0,  *bilan;
+  double *x,*y, *T1, *T0,  *bilan, *buffer, *buffer_s;
   x       = new double[Ndim_tab[0]];
   y       = new double[Ndim_tab[1]];
   bilan   = new double[Ndim_tab[0]*Ndim_tab[1]]; 
   T1      = new double[Ndim_tab[0]*Ndim_tab[1]]; 
   T0      = new double[Ndim_tab[0]*Ndim_tab[1]]; 
+  // les buffers
+  buffer  = new double[nfic*2*(Ndim_tab[0]+Ndim_tab[1])]; 
+  buffer_s= new double[nfic*2*(Ndim_tab[0]+Ndim_tab[1])];
+
+  for (int64_t j = 0; j < nfic*2*(Ndim_tab[0]+Ndim_tab[1])  ; ++j ){ buffer[j] = -40000; buffer_s[j] = 40000;}
   
   double dx[2];
 
-  init( Ndim_tab, dim, T0, x, y, dx);
-  fprintf(out, "dim blocX =  %d, dim blocY =  %d, dx= %f, dy= %f \n",Ndim_tab[0], Ndim_tab[1],  dx[0], dx[1] );
+  init(Ndim_tab, dim, T0, x, y, dx, rank, nbp);
+  fprintf(out, "dim blocX =  %d, dim blocY =  %d, dx= %f, dy= %f \n",Ndim_tab[0], Ndim_tab[1],  dx[0], dx[1]);
 
   for (int64_t j = 0; j < Ndim_tab[1] ; ++j ){ 
     for (int64_t i = 0; i < Ndim_tab[0] ; ++i ){ 
@@ -236,7 +247,8 @@ int main( int nargc, char* argv[])
   const double mu =0.0005;   // coeff diffusion
   int Nitmax      =2000;
   int Stepmax     = 2;
-
+  for (int64_t j = 0; j < nfic*2*(Ndim_tab[0]+Ndim_tab[1])  ; ++j ){ buffer[j] = -40000; buffer_s[j] = 40000;}
+  
   //Boucle en temps
   for (int64_t nit = 0; nit < Nitmax ; ++nit )
   { 
@@ -246,57 +258,188 @@ int main( int nargc, char* argv[])
     double *Tbilan;
     for (int64_t step = 0; step < Stepmax ; ++step )
     { 
-       //mise a jour point courant
-       if(step==0) { Tin = T0; Tout= T1; Tbilan= T0;}
-       else        { Tin = T0; Tout= T0; Tbilan= T1;}
+      //mise a jour point courant
+      if(step==0) { Tin = T0; Tout= T1; Tbilan= T0;}
+      else        { Tin = T0; Tout= T0; Tbilan= T1;}
 
-       //advection
-       advection(Ndim_tab, Tbilan, bilan,  dx, U , step);
-
-       diffusion(Ndim_tab, Tbilan, bilan,  dx, mu);
-       mise_a_jour(Ndim_tab, Tin, Tout, bilan,  dt);
+      //advection
+      advection(Ndim_tab, Tbilan, bilan,  dx, U , step);
+      diffusion(Ndim_tab, Tbilan, bilan,  dx, mu);
+      mise_a_jour(Ndim_tab, Tin, Tout, bilan,  dt);
 
       //Application Condition limite
       for (int64_t ific = 0; ific < nfic ; ++ific )
       {  
-          //periodicité en Jmax et Jmin
-          for (int64_t i = 0; i < Ndim_tab[0]  ; ++i )
-          {  
-           //Jmin
-           int l0   = ific*Ndim_tab[0] +i;
- 
-           int l1   = Ndim_tab[0]*(Ndim_tab[1]-2*nfic +ific) +i;
+        //periodicité en Jmax et Jmin
+        for (int64_t i = 0; i < Ndim_tab[0]  ; ++i )
+        {  
+          //Jmin
+          int l0   = ific*Ndim_tab[0] +i;
+          int l1   = Ndim_tab[0]*(Ndim_tab[1]-2*nfic +ific) +i;
 
-           Tout[l0] = Tout[l1];
+          Tout[l0] = Tout[l1];
 
-           //Jmax
-           l0   = Ndim_tab[0]*(Ndim_tab[1]-nfic +ific) +i;
-           l1   = Ndim_tab[0]*(nfic +ific) +i;
+          //Jmax
+          l0   = Ndim_tab[0]*(Ndim_tab[1]-nfic +ific) +i;
+          l1   = Ndim_tab[0]*(nfic +ific) +i;
 
-           Tout[l0] = Tout[l1];
-          }
+          Tout[l0] = Tout[l1];
+        }
       }
 
-      for (int64_t ific = 0; ific < nfic ; ++ific )
-      { 
-          //periodicité en Imax et Imin
-          for (int64_t j = 0; j < Ndim_tab[1]  ; ++j )
-          {  
-           //Imin
-           int l0   = ific +j*Ndim_tab[0]; 
-           int l1   = l0 + Ndim_tab[0] - 2*nfic;
 
-           Tout[l0] = Tout[l1];
+      // Here comes the MPI stuff allong the X axis
+      // On va d'abord faire communiquer les bords
 
-           //Imax
-           l0   = ific + (j+1)*Ndim_tab[0] - nfic;
-           l1   = l0 - Ndim_tab[0] + 2*nfic;
 
-           Tout[l0] = Tout[l1];
+      //Remplissage du buffer d'envoie
+      for(int64_t ific = 0; ific < nfic; ific++)
+      {
+        for (int64_t j = 0; j < Ndim_tab[1]; ++j)
+        {
+          //Imin
+          int l0   = ific + (j+1)*Ndim_tab[0] - nfic;
+          int l1   = l0 - Ndim_tab[0] + 2*nfic;
+          buffer_s[j + Ndim_tab[1]*ific] = Tout[l1];
+
+          //Imax
+          l0   = ific +j*Ndim_tab[0]; 
+          l1   = l0 + Ndim_tab[0] - 2*nfic;
+          buffer_s[j + Ndim_tab[1]*(ific + 2)] = Tout[l1];
+        }
+      }
+      
+      //Reception non bloquante
+      int rank_donor;
+      int shift;
+      if(nbp != 1)
+      {
+        for (int rac = 0; rac < 2; rac++)
+        {
+          if(rac == 0)
+          {
+            if(rank == 0){rank_donor = nbp - 1;}
+            else {rank_donor = rank - 1;}
+            shift = 0;
           }
+          else
+          {
+            if(rank == nbp - 1) {rank_donor = 0;}
+            else {rank_donor = rank + 1;}
+            shift = Ndim_tab[1]*nfic;
+          }
+          int etiquette = rank + 10000*rank_donor;
+          int size     = Ndim_tab[1]*2;
+
+          MPI_Irecv(buffer+shift, 
+          size, 
+          MPI_DOUBLE,  
+          rank_donor,
+          etiquette,
+          world,
+          &request[rac]);
+        }
+      }
+  
+      int rank_dest;
+      //Envoie bloquante
+      if(nbp != 1)
+      {
+        for (int rac = 0; rac < 2; rac++)
+        {
+          if(rac == 0)
+          {
+            if(rank == 0){rank_dest = nbp - 1;}
+            else {rank_dest = rank - 1;}
+            shift = 0;
+          }
+          else
+          {
+            if(rank == nbp - 1){rank_dest = 0;}
+            else {rank_dest = rank + 1;}
+            shift = Ndim_tab[1]*nfic;
+          }
+          int etiquette= 10000*rank + rank_dest;
+          int size     = Ndim_tab[1]*2;
+
+          MPI_Send(buffer_s+shift, 
+          size, 
+          MPI_DOUBLE,  
+          rank_dest, 
+          etiquette,
+          world);
+        }
       }
 
-     }  // Nstepmax
+      // Test de la reception
+      // barrier MPI
+      for (int64_t rac = 0; rac < 2 ; ++rac )
+      {
+        int flag = 0;
+        MPI_Test(&request[rac], 
+        &flag, 
+        &stats);
+        while (!flag) {MPI_Test(&request[rac], &flag, &stats);}
+      }
+
+      // Mise à jour de nos cellules phatômes
+      if(nbp != 1)
+      {
+        if(rank == 0 || rank == nbp -1)
+        { 
+          for (int64_t ific = 0; ific < nfic ; ++ific )
+          { 
+            //periodicité en Imax et Imin
+            for (int64_t j = 0; j < Ndim_tab[1]  ; ++j )
+            {  
+              //Imin
+              int l0   = ific + (j+1)*Ndim_tab[0] - nfic;
+              Tout[l0] = buffer[j + Ndim_tab[1]*ific];
+
+              //Imax
+              l0   = ific + j*Ndim_tab[0];
+              Tout[l0] = buffer[j + Ndim_tab[1]*(ific + 2)];
+            }
+          }
+        }
+        else {
+          for (int64_t ific = 0; ific < nfic ; ++ific )
+          { 
+            //periodicité en Imax et Imin
+            for (int64_t j = 0; j < Ndim_tab[1]  ; ++j )
+            {  
+              //Imin
+              int l0   = ific + j*Ndim_tab[0];
+              Tout[l0] = buffer[j + Ndim_tab[1]*ific];
+
+              //Imax
+              l0   = ific + (j+1)*Ndim_tab[0] - nfic;
+              Tout[l0] = buffer[j + Ndim_tab[1]*(ific + 2)];
+            }
+          }
+        }
+      }
+
+      // for (int64_t ific = 0; ific < nfic ; ++ific )
+      // { 
+      //   //periodicité en Imax et Imin
+      //   for (int64_t j = 0; j < Ndim_tab[1]  ; ++j )
+      //   {  
+      //   //Imin
+      //   int l0   = ific +j*Ndim_tab[0]; 
+      //   int l1   = l0 + Ndim_tab[0] - 2*nfic;
+
+      //   Tout[l0] = Tout[l1];
+
+      //   //Imax
+      //   l0   = ific + (j+1)*Ndim_tab[0] - nfic;
+      //   l1   = l0 - Ndim_tab[0] + 2*nfic;
+
+      //   Tout[l0] = Tout[l1];
+      //   }
+      // }
+
+      }  // Nstepmax
     }  // Nitmax
 
   for (int64_t i = nfic; i < Ndim_tab[0]-nfic ; ++i ){ 

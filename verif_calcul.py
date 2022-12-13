@@ -13,7 +13,9 @@ diff = ref[:,1]-res[:,1]
 good = True
 for i in range(sh[0]):
    if abs(diff[i]) > 1.e-11:
-       print('variation =',diff[i], i)
+    #    print('variation =',diff[i], i)
        good = False
 
 if good: print("Calcul // OK")
+else : print("Calcul // KO")
+print(np.linalg.norm(diff))
