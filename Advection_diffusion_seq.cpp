@@ -87,7 +87,7 @@ void mise_a_jour( int* ndim_tab,   double* T0, double* T1, double* bilan, const 
 ////
 //// advection
 ////
-void advection( int* ndim_tab,   double* T, double* bilan, double* dx, double* a, int step  )
+void advection( int* ndim_tab,   double* T, double* bilan, double* dx, double* a, int step)
 {
 
   double c1 = 7./6.;
@@ -220,6 +220,7 @@ int main( int nargc, char* argv[])
  
   const double mu =0.0005;   // coeff diffusion
   int Nitmax      =2000;
+  // int Nitmax = 2;
   int Stepmax     = 2;
 
   //Boucle en temps
