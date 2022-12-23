@@ -42,7 +42,7 @@ Chronometer::click()
 ////
 //// Init
 ////
-void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* dx, int rank, int nbp, int nfic)
+void init( int* ndim_tab, int* dim, double* T0, double* x , double* y, double* dx, int rank, int nbp)
 {
   const double lx = 10.;
  
@@ -200,7 +200,7 @@ int main( int nargc, char* argv[])
   char fileName[255];
   FILE* out;
 
-  int dim[2]; dim[0] = 500; dim[1]=500;
+  int dim[2]; dim[0] = 500; dim[1] = 500;
   int nfic     =  2;
 
   // sprintf(fileName, "Sortie.txt");
@@ -235,7 +235,7 @@ int main( int nargc, char* argv[])
   
   double dx[2];
 
-  init(Ndim_tab, dim, T0, x, y, dx, rank, nbp, nfic);
+  init(Ndim_tab, dim, T0, x, y, dx, rank, nbp);
   fprintf(out, "dim blocX =  %d, dim blocY =  %d, dx= %f, dy= %f \n",Ndim_tab[0], Ndim_tab[1],  dx[0], dx[1]);
 
   for (int64_t j = 0; j < Ndim_tab[1] ; ++j ){ 
@@ -254,10 +254,10 @@ int main( int nargc, char* argv[])
   U[0]  =1.;      // vitesse advection
   U[1]  =1.;
  
-  const double mu =0.0005;   // coeff diffusion
-  int Nitmax      =2000;
-  // int Nitmax = 2;
-  int Stepmax     = 2;
+  const double mu = 0.0005;   // coeff diffusion
+  int Nitmax      = 2000;
+  
+  int Stepmax     = 0;
   for (int64_t j = 0; j < nfic*2*(Ndim_tab[0]+Ndim_tab[1])  ; ++j ){ buffer[j] = -40000; buffer_s[j] = 40000;}
   
   //Boucle en temps

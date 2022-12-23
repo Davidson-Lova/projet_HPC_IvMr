@@ -174,6 +174,7 @@ int main( int nargc, char* argv[])
   FILE* out;
 
   int dim[2]; dim[0] = 500; dim[1]=500;
+
   int nfic     =  2;
 
   sprintf(fileName, "Sortie.txt");
@@ -219,8 +220,8 @@ int main( int nargc, char* argv[])
   U[1]  =1.;
  
   const double mu =0.0005;   // coeff diffusion
-  int Nitmax      =2000;
-  // int Nitmax = 2;
+  // int Nitmax      =2000;
+  int Nitmax = 10;
   int Stepmax     = 2;
 
   //Boucle en temps
