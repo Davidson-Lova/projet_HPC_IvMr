@@ -220,8 +220,8 @@ int main( int nargc, char* argv[])
   U[1]  =1.;
  
   const double mu =0.0005;   // coeff diffusion
-  // int Nitmax      =2000;
-  int Nitmax = 10;
+  int Nitmax      =2000;
+  
   int Stepmax     = 2;
 
   //Boucle en temps

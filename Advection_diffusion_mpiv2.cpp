@@ -279,8 +279,7 @@ int main( int nargc, char* argv[])
   U[1]  =1.;
  
   const double mu =0.0005;   // coeff diffusion
-  // int Nitmax      =2000;
-  int Nitmax = 10;
+  int Nitmax      =2000;
   int Stepmax     = 2;
   for (int64_t j = 0; j < nfic*2*(Ndim_tab[0]+Ndim_tab[1])  ; ++j ){ buffer[j] = -40000; buffer_s[j] = 40000;}
  
@@ -337,100 +336,6 @@ int main( int nargc, char* argv[])
           }
       }
 
-      // reception non bloquante
-      int rank_donor{0};
-      int shift{0};
-      if(nbp_y != 1)
-      {
-        for (int rac = 2; rac < 4; rac++)
-        {
-
-          rank_donor = (Pos_rankY == 1) ? (rank - nbp_x) : (rank + nbp_x);
-          shift = ((rac == 2) ? 0 : Ndim_tab[0]*nfic) + big_buffer_shift;
-          int etiquette = (rank + 10000*rank_donor)* ((rac == 2) ? 100 : 1);
-          int size     = Ndim_tab[0]*nfic;
-
-          MPI_Irecv(buffer+shift, 
-            size, 
-            MPI_DOUBLE,  
-            rank_donor,
-            etiquette,
-            world,
-            &request[rac]);
-        }
-      }
-      
-      // Envoie bloquante
-      int rank_dest{0};
-      if (nbp_y != 1)
-      {
-        for (int rac = 2; rac < 4; rac++)
-        {
-
-          rank_dest = (Pos_rankY == 1) ? (rank- nbp_x) : (rank + nbp_x);
-          shift = ((rac == 2) ? 0 : Ndim_tab[0]*nfic) + big_buffer_shift;
-          int etiquette = (10000*rank + rank_dest)* ((rac == 3) ? 100 : 1);
-          int size     = Ndim_tab[0]*nfic;
-
-          MPI_Send(buffer_s + shift,
-          size,
-          MPI_DOUBLE,
-          rank_dest,
-          etiquette,
-          world);
-        }
-      }
-      // Test de reception bariere MPI
-      for (int64_t rac = 2; rac < 4 ; ++rac )
-      {
-        int flag = 0;
-        MPI_Test(&request[rac], 
-        &flag, 
-        &stats);
-        while (!flag) {MPI_Test(&request[rac], &flag, &stats);}
-      }
-
-      // Mise à jour des cellules phantômes
-      // Application Condition limite
-
-      for (int64_t ific = 0; ific < nfic ; ++ific )
-      {  
-          //periodicité en Jmax et Jmin
-          for (int64_t i = 0; i < Ndim_tab[0]  ; ++i )
-          {  
-           //Jmin
-           int  l0   = Ndim_tab[0]*(Ndim_tab[1]-nfic +ific) +i;
-           Tout[l0] = buffer[big_buffer_shift + Ndim_tab[0]*ific + i] ;
-
-           //Jmax
-          
-            l0   = ific*Ndim_tab[0] +i;
-
-           Tout[l0] = buffer[big_buffer_shift + Ndim_tab[0]*(ific + 2) + i];
-          }
-      }
-
-      //Application Condition limite
-      // for (int64_t ific = 0; ific < nfic ; ++ific )
-      // {  
-      //     //periodicité en Jmax et Jmin
-      //     for (int64_t i = 0; i < Ndim_tab[0]  ; ++i )
-      //     {  
-      //      //Jmin
-      //      int l0   = ific*Ndim_tab[0] +i;
- 
-      //      int l1   = Ndim_tab[0]*(Ndim_tab[1]-2*nfic +ific) +i;
-
-      //      Tout[l0] = Tout[l1];
-
-      //      //Jmax
-      //      l0   = Ndim_tab[0]*(Ndim_tab[1]-nfic +ific) +i;
-      //      l1   = Ndim_tab[0]*(nfic +ific) +i;
-
-      //      Tout[l0] = Tout[l1];
-      //     }
-      // }
-
       // ##     ##
       //  ##   ##
       //   #####
@@ -438,8 +343,6 @@ int main( int nargc, char* argv[])
       //    ###
       //    ###
       //    ###
-
-
 
       // ##     ##          
       //  ##   ##
@@ -467,67 +370,97 @@ int main( int nargc, char* argv[])
         }
       }
 
+      // ##     ##          
+      //  ##   ##
+      //   #####
+      //    ### 
+      //   #####  
+      //  ##   ##
+      // ##     ##
+
+      // reception non bloquante
+      int rank_donor{0};
+      int shift{0};
+      int etiquette{0};
+      int size{0};
+
       //Reception non bloquante
-      // int rank_donor{0};
-      // int shift{0};
-      if(nbp_x != 1)
+      if((nbp_y) != 1 && (nbp_x != 1))
       {
-        for (int rac = 0; rac < 2; rac++)
+        for (int rac = 0; rac < 4; rac++)
         {
-          if(rac == 0)
+          if(rac == 0) 
           {
             if(Pos_rankX == 0){rank_donor = (Pos_rankY+1)*nbp_x - 1;}
             // if(rank == 0){rank_donor = nbp - 1;}
             else {rank_donor = rank - 1;}
             shift = 0;
+            etiquette = (rank + 10000*rank_donor)* 100;
+            size     = Ndim_tab[1]*nfic;
           }
-          else
+          else if (rac == 1)
           {
             if(Pos_rankX == nbp_x - 1) { rank_donor = nbp_x*Pos_rankY;}
             // if(rank == nbp - 1) {rank_donor = 0;}
             else {rank_donor = rank + 1;}
             shift = Ndim_tab[1]*nfic;
+            etiquette = (rank + 10000*rank_donor);
+            size     = Ndim_tab[1]*nfic;
           }
-          int etiquette = (rank + 10000*rank_donor)* ((rac == 0) ? 100 : 1);
-          int size     = Ndim_tab[1]*nfic;
+          else if (rac >= 2)
+          {
+            rank_donor = (Pos_rankY == 1) ? (rank - nbp_x) : (rank + nbp_x);
+            shift = ((rac == 2) ? 0 : Ndim_tab[0]*nfic) + big_buffer_shift;
+            etiquette = (rank + 10000*rank_donor)* ((rac == 2) ? 100 : 1);
+            size     = Ndim_tab[0]*nfic;
+          }
 
           MPI_Irecv(buffer+shift, 
-          size, 
-          MPI_DOUBLE,  
-          rank_donor,
-          etiquette,
-          world,
-          &request[rac]);
+            size, 
+            MPI_DOUBLE,  
+            rank_donor,
+            etiquette,
+            world,
+            &request[rac]);
         }
       }
-  
-      // int rank_dest{0};
-      //Envoie bloquante
-      if(nbp != 1)
+      
+      // Envoie bloquante
+      int rank_dest{0};
+      if ((nbp_x != 1) && (nbp_y != 1))
       {
-        for (int rac = 0; rac < 2; rac++)
+        for (int rac = 0; rac < 4; rac++)
         {
+
           if(rac == 0)
           {
             if(Pos_rankX == 0) {rank_dest = (Pos_rankY + 1)*nbp_x - 1;}
             // if(rank == 0){rank_dest = nbp - 1;}
             else {rank_dest = rank - 1;}
             shift = 0;
+            etiquette= (10000*rank + rank_dest);
+            size     = Ndim_tab[1]*nfic;
           }
-          else
-          {
+          else if(rac == 1) {
             if(Pos_rankX == nbp_x - 1) { rank_dest = Pos_rankY*nbp_x;}
             // if(rank == nbp - 1){rank_dest = 0;}
             else {rank_dest = rank + 1;}
             shift = Ndim_tab[1]*nfic;
+            etiquette= (10000*rank + rank_dest) * 100;
+            size     = Ndim_tab[1]*nfic;
           }
-          int etiquette= (10000*rank + rank_dest) * ((rac == 1) ? 100 : 1);
-          int size     = Ndim_tab[1]*nfic;
-
-          MPI_Send(buffer_s+shift, 
-          size, 
-          MPI_DOUBLE,  
-          rank_dest, 
+          else if(rac >= 2)
+          {
+            rank_dest = (Pos_rankY == 1) ? (rank- nbp_x) : (rank + nbp_x);
+            shift = ((rac == 2) ? 0 : Ndim_tab[0]*nfic) + big_buffer_shift;
+            etiquette = (10000*rank + rank_dest)* ((rac == 3) ? 100 : 1);
+            size     = Ndim_tab[0]*nfic;
+          }
+          
+          MPI_Send(buffer_s + shift,
+          size,
+          MPI_DOUBLE,
+          rank_dest,
           etiquette,
           world);
         }
@@ -535,7 +468,7 @@ int main( int nargc, char* argv[])
 
       // Test de la reception
       // barrier MPI
-      for (int64_t rac = 0; rac < 2 ; ++rac )
+      for (int64_t rac = 0; rac < 4 ; ++rac )
       {
         int flag = 0;
         MPI_Test(&request[rac], 
@@ -543,6 +476,51 @@ int main( int nargc, char* argv[])
         &stats);
         while (!flag) {MPI_Test(&request[rac], &flag, &stats);}
       }
+
+
+      // ##     ##
+      //  ##   ##
+      //   #####
+      //    ###
+      //    ###
+      //    ###
+      //    ###
+
+      // Mise à jour des cellules phantômes
+      // Application Condition limite
+
+      for (int64_t ific = 0; ific < nfic ; ++ific )
+      {  
+          //periodicité en Jmax et Jmin
+          for (int64_t i = 0; i < Ndim_tab[0]  ; ++i )
+          {  
+           //Jmin
+           int  l0   = Ndim_tab[0]*(Ndim_tab[1]-nfic +ific) +i;
+           Tout[l0] = buffer[big_buffer_shift + Ndim_tab[0]*ific + i] ;
+
+           //Jmax
+          
+            l0   = ific*Ndim_tab[0] +i;
+
+           Tout[l0] = buffer[big_buffer_shift + Ndim_tab[0]*(ific + 2) + i];
+          }
+      }
+
+      // ##     ##
+      //  ##   ##
+      //   #####
+      //    ###
+      //    ###
+      //    ###
+      //    ###
+
+      // ##     ##          
+      //  ##   ##
+      //   #####
+      //    ### 
+      //   #####  
+      //  ##   ##
+      // ##     ##
 
       // Mise à jour de nos cellules phatômes
       if(nbp != 1)
@@ -561,27 +539,6 @@ int main( int nargc, char* argv[])
           }
         }
       }
-
-
-
-      // for (int64_t ific = 0; ific < nfic ; ++ific )
-      // { 
-      //     //periodicité en Imax et Imin
-      //     for (int64_t j = 0; j < Ndim_tab[1]  ; ++j )
-      //     {  
-      //      //Imin
-      //      int l0   = ific +j*Ndim_tab[0]; 
-      //      int l1   = l0 + Ndim_tab[0] - 2*nfic;
-
-      //      Tout[l0] = Tout[l1];
-
-      //      //Imax
-      //      l0   = ific + (j+1)*Ndim_tab[0] - nfic;
-      //      l1   = l0 - Ndim_tab[0] + 2*nfic;
-
-      //      Tout[l0] = Tout[l1];
-      //     }
-      // }
 
       // ##     ##          
       //  ##   ##

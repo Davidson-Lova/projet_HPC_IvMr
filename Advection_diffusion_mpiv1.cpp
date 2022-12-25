@@ -257,7 +257,8 @@ int main( int nargc, char* argv[])
   const double mu = 0.0005;   // coeff diffusion
   int Nitmax      = 2000;
   
-  int Stepmax     = 0;
+  int Stepmax     = 2;
+
   for (int64_t j = 0; j < nfic*2*(Ndim_tab[0]+Ndim_tab[1])  ; ++j ){ buffer[j] = -40000; buffer_s[j] = 40000;}
   
   //Boucle en temps
