@@ -18,5 +18,3 @@ Le fichier suivant :
 doit être utiliser avec [res_norm.py](https://github.com/Davidson-Lova/projet_HPC_IvMr/blob/master/res_norm.py) pour renormaliser le format du res.txt au bon format pour gnuplot.
 
 Ce [Notebook](https://github.com/Davidson-Lova/projet_HPC_IvMr/blob/master/note.ipynb) est utiliser pour tester l'integralité des fonctions demander.
-
-Le Notebook [sandbox.ipynb](https://github.com/Davidson-Lova/projet_HPC_IvMr/blob/master/sandbox.ipynb) est un brouillon.
