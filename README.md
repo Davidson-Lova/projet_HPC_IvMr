@@ -15,6 +15,6 @@ qui fonctionnent comme leur nom l'indique.
 
 Le fichier suivant :
 - [Advection_diffusion_mpiv2.cpp](https://github.com/Davidson-Lova/projet_HPC_IvMr/blob/master/Advection_diffusion_mpiv2.cpp)
-doit être utiliser avec [res_norm.py](https://github.com/Davidson-Lova/projet_HPC_IvMr/blob/master/res_norm.py) pour renormaliser le format du res.txt au bon format pour gnuplot.
+doit être utiliser avec [res_norm.py](https://github.com/Davidson-Lova/projet_HPC_IvMr/blob/master/res_norm.py) pour renormaliser le format du res.txt au bon format pour gnuplot seulement qu'on a un nombre de processus superirieur à 1.
 
 Ce [Notebook](https://github.com/Davidson-Lova/projet_HPC_IvMr/blob/master/tests.ipynb) est utiliser pour tester l'integralité des fonctions demander.
