@@ -16,7 +16,7 @@ OBJS_mpi2 = Advection_diffusion_mpiv2.o
 all:	advectiondiff.exe advectiondiff_omp.exe advectiondiff_mpiv1.exe advectiondiff_mpiv2.exe
 
 clean:
-	@rm -fr *.o *.exe *~
+	@rm -fr *.o *.exe *~ res.txt Sort* res_Sort*
 
 advectiondiff.exe: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
